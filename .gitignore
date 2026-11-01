@@ -7,9 +7,3 @@ venv/
 .DS_Store
 Thumbs.db
 ~$*.docx
-videos/*
-!videos/.gitkeep
-data/processed/*
-!data/processed/.gitkeep
-src/__pycache__/
-.ipynb_checkpoints/

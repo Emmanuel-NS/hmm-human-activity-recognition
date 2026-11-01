@@ -1,4 +1,4 @@
-"""Load Sensor Logger / Physics Toolbox CSV files and build windowed sequences."""
+"""Load CSV recordings, resample, and build feature sequences."""
 
 from __future__ import annotations
 

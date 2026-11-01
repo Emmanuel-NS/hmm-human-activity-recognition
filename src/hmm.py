@@ -1,11 +1,4 @@
-"""
-Gaussian Hidden Markov Model from scratch (NumPy).
-
-- Baum–Welch (EM) for unsupervised parameter learning with log-likelihood
-  convergence check |Δll| < epsilon
-- Forward–Backward for E-step
-- Viterbi for MAP state-sequence decoding
-"""
+"""Gaussian HMM in NumPy: Baum-Welch training and Viterbi decoding."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Classification metrics for HMM decoded sequences."""
+"""Sensitivity, specificity, accuracy helpers."""
 
 from __future__ import annotations
 

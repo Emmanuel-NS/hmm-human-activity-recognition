@@ -1,4 +1,4 @@
-"""Time-domain and frequency-domain feature extraction for HAR."""
+"""Window features from accel/gyro (time + FFT)."""
 
 from __future__ import annotations
 
