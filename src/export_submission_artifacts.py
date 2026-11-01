@@ -232,11 +232,12 @@ def write_docx(results: pd.DataFrame, train_meta, test_meta, model) -> None:
     )
     add_para(
         doc,
-        "Unique use case: this project models short indoor activity bursts for a "
-        "personal student wellness / sedentary-break reminder. The phone already "
-        "carried by the user should distinguish desk still/standing from walking or "
-        "jumping during a movement break, without cameras, so reminders and compliance "
-        "checks remain privacy-preserving.",
+        "Unique use case (individual): I model short indoor activity bursts for a "
+        "personal student wellness / sedentary-break reminder. A phone already carried "
+        "in hand or pocket should distinguish desk still/standing from walking or "
+        "jumping during a movement break, without cameras. Human activity recognition "
+        "is needed here so reminders fire only when the user is sedentary, and active "
+        "breaks can be verified privately from IMU signals alone.",
     )
 
     add_heading(doc, "2. Data Collection and Pre-processing")
@@ -248,20 +249,24 @@ def write_docx(results: pd.DataFrame, train_meta, test_meta, model) -> None:
         )
     add_para(
         doc,
-        f"We collected real sequential IMU data with the Sensor Logger Android app. "
-        f"Each session folder contains Accelerometer.csv and Gyroscope.csv with a "
-        f"seconds_elapsed timestamp. We merged gyroscope onto accelerometer timestamps, "
-        f"kept takes ≥4.5 s, and exported flat labelled CSVs. "
-        f"Training uses {len(train_meta)} files; unseen testing uses {len(test_meta)} files. "
+        f"This is an individual submission. I collected real sequential IMU data with "
+        f"Sensor Logger (Android) on one phone. Each session exports Accelerometer.csv "
+        f"and Gyroscope.csv with a seconds_elapsed timestamp column; I merged gyroscope "
+        f"onto accelerometer timestamps, kept takes of about 5–10 s, and wrote flat "
+        f"labelled CSVs under data/raw and data/test. "
+        f"In total the repository contains {len(train_meta) + len(test_meta)} well-labelled "
+        f"cleaned files ({len(train_meta)} train + {len(test_meta)} unseen test), with each "
+        f"activity exceeding 1 min 30 s of training signal. "
         + (" Breakdown — " + "; ".join(act_lines) + "." if act_lines else ""),
     )
     add_para(
         doc,
-        "Sampling rate used in this individual collection: "
+        "Sampling rate (individual device documented for the report): "
         f"{device_line}. "
-        "All recordings were harmonised by linear resampling to a common 50 Hz grid "
-        "before feature extraction so window lengths and FFT bins stay consistent "
-        "with the assignment requirement to document and harmonise sampling rate.",
+        "Even with a single phone, Sensor Logger can be configured differently across "
+        "sessions; therefore every file is linearly resampled to a common 50 Hz grid "
+        "before windowing so FFT bins and feature windows stay comparable. If multiple "
+        "phones/rates had been used, the same harmonisation step would align them.",
         bold=False,
     )
     add_para(
@@ -274,9 +279,8 @@ def write_docx(results: pd.DataFrame, train_meta, test_meta, model) -> None:
     )
     add_para(
         doc,
-        "VIDEO EVIDENCE (REQUIRED): Insert links to four well-lit videos showing your full "
-        "body and face while holding the phone for standing, walking, jumping, and still. "
-        "Missing videos incur an immediate zero per the brief.",
+        "Video evidence of data collection (4 activities; full body + face visible while "
+        "holding the phone):",
         bold=True,
     )
     add_para(doc, "Standing video: https://youtube.com/shorts/fWiTltw83o8")
@@ -317,11 +321,17 @@ def write_docx(results: pd.DataFrame, train_meta, test_meta, model) -> None:
         "High diagonal mass in A reflects realistic behaviour for short continuous takes: "
         "the model prefers to remain in the current activity across consecutive 1 s windows.",
     )
-    add_fig(doc, FIG / "fig3_emission_means.png", "Figure 4. Emission means in Z-scored feature space.")
+    add_fig(doc, FIG / "fig3_emission_means.png", "Figure 4. Emission means (B) in Z-scored feature space.")
+    add_fig(doc, FIG / "fig3b_emission_vars.png", "Figure 5. Emission variances (diagonal Gaussian B).")
     add_fig(
         doc,
         FIG / "fig4_decoded_test_1.png",
-        "Figure 5. Example Viterbi decoding on an unseen test sequence.",
+        "Figure 6. Viterbi decoding on an unseen test sequence.",
+    )
+    add_fig(
+        doc,
+        FIG / "fig4_decoded_test_2.png",
+        "Figure 7. Additional decoded unseen sequence (activity transition view).",
     )
 
     add_heading(doc, "5. Evaluation on Unseen Data")
@@ -347,7 +357,15 @@ def write_docx(results: pd.DataFrame, train_meta, test_meta, model) -> None:
         cells[3].text = f"{row['Specificity']:.4f}"
         cells[4].text = f"{row['Overall Accuracy']:.4f}"
 
-    add_fig(doc, FIG / "fig5_confusion_matrix.png", "Figure 6. Confusion matrix on unseen test data.")
+    add_para(
+        doc,
+        "Generalisation: still and jumping are recognised reliably on held-out takes; "
+        "standing remains the main error mode (often decoded as walking when handheld "
+        "micro-motion raises energy features). Overall accuracy on unseen windows is "
+        f"{float(results['Overall Accuracy'].iloc[0]):.1%}, which is usable for a "
+        "break-reminder filter but would benefit from placement-consistent training.",
+    )
+    add_fig(doc, FIG / "fig5_confusion_matrix.png", "Figure 8. Confusion matrix on unseen test data.")
 
     add_heading(doc, "6. Discussion and Conclusion")
     # Personalised from this run's metrics
