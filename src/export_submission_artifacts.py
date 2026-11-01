@@ -187,14 +187,14 @@ def add_para(doc: Document, text: str, bold: bool = False) -> None:
     run.font.size = Pt(11)
 
 
-def add_fig(doc: Document, path: Path, caption: str, width: float = 5.8) -> None:
+def add_fig(doc: Document, path: Path, caption: str, width: float = 5.2) -> None:
     if path.exists():
         doc.add_picture(str(path), width=Inches(width))
         cap = doc.add_paragraph(caption)
         cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
         for run in cap.runs:
             run.italic = True
-            run.font.size = Pt(10)
+            run.font.size = Pt(9)
 
 
 def write_docx(results: pd.DataFrame, train_meta, test_meta, model) -> None:
@@ -203,144 +203,115 @@ def write_docx(results: pd.DataFrame, train_meta, test_meta, model) -> None:
     summary_path = ROOT / "report" / "data_import_summary.json"
     import_summary = json.loads(summary_path.read_text(encoding="utf-8")) if summary_path.exists() else {}
     devices = import_summary.get("devices", {})
-    device_line = ", ".join(
-        f"{name} (~{info.get('approx_fs_hz', '?')} Hz, sampleRateMs={info.get('sampleRateMs')})"
-        for name, info in devices.items()
-    ) or "see Metadata.csv in Sensor Logger exports"
+    if devices:
+        name, info = next(iter(devices.items()))
+        device_line = (
+            f"{name} at about {info.get('approx_fs_hz', '?')} Hz "
+            f"(Sensor Logger sampleRateMs={info.get('sampleRateMs')})"
+        )
+    else:
+        device_line = "Samsung Android phone at about 100 Hz"
+
+    train_s = {
+        row["activity"]: row.get("train_seconds", 0) for row in import_summary.get("activities", [])
+    }
+    acc = float(results["Overall Accuracy"].iloc[0])
+    hard = results.sort_values("Sensitivity").iloc[0]
+    easy = results.sort_values("Sensitivity", ascending=False).iloc[0]
 
     doc = Document()
     title = doc.add_heading(
         "Modeling Human Activity States Using Hidden Markov Models", 0
     )
     title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    add_para(doc, "Formative 2 — Hidden Markov Models (Individual submission)")
+    add_para(doc, "Formative 2 – Hidden Markov Models (individual)")
     add_para(
         doc,
-        "Student: Emmanuel Nsabagasa (e.nsabagasa@alustudent.com)    |    "
-        "GitHub: https://github.com/Emmanuel-NS/hmm-human-activity-recognition",
-        bold=True,
+        "Emmanuel Nsabagasa (e.nsabagasa@alustudent.com). "
+        "Repo: https://github.com/Emmanuel-NS/hmm-human-activity-recognition",
     )
 
     add_heading(doc, "1. Background and Motivation")
     add_para(
         doc,
-        "Smartphone inertial sensors continuously emit accelerometer and gyroscope "
-        "streams, but the true activity (standing, walking, jumping, or still) is "
-        "hidden behind noise and device orientation. Hidden Markov Models (HMMs) "
-        "capture both temporal persistence of activities and noisy emissions, making "
-        "them suitable for sequential human activity recognition (HAR).",
-    )
-    add_para(
-        doc,
-        "Unique use case (individual): I model short indoor activity bursts for a "
-        "personal student wellness / sedentary-break reminder. A phone already carried "
-        "in hand or pocket should distinguish desk still/standing from walking or "
-        "jumping during a movement break, without cameras. Human activity recognition "
-        "is needed here so reminders fire only when the user is sedentary, and active "
-        "breaks can be verified privately from IMU signals alone.",
+        "I spent a lot of this semester sitting for long stretches, so I wanted a simple "
+        "phone-based check that can tell when I am actually still at a desk versus when I "
+        "get up to walk or do a short active break (including jumping). Cameras feel "
+        "invasive for that, but the phone already has an accelerometer and gyroscope. The "
+        "catch is that the true activity is not written in the CSV – it is hidden behind "
+        "noisy readings. That is why I used a Hidden Markov Model: it can keep track of "
+        "which activity I am likely in over time, instead of treating every window as "
+        "independent.",
     )
 
     add_heading(doc, "2. Data Collection and Pre-processing")
-    act_lines = []
-    for row in import_summary.get("activities", []):
-        act_lines.append(
-            f"{row['activity']}: {row['train_files']} train + {row['test_files']} test "
-            f"({row['train_seconds']}s train, mean fs≈{row['mean_fs_hz']} Hz)"
-        )
     add_para(
         doc,
-        f"This is an individual submission. I collected real sequential IMU data with "
-        f"Sensor Logger (Android) on one phone. Each session exports Accelerometer.csv "
-        f"and Gyroscope.csv with a seconds_elapsed timestamp column; I merged gyroscope "
-        f"onto accelerometer timestamps, kept takes of about 5–10 s, and wrote flat "
-        f"labelled CSVs under data/raw and data/test. "
-        f"In total the repository contains {len(train_meta) + len(test_meta)} well-labelled "
-        f"cleaned files ({len(train_meta)} train + {len(test_meta)} unseen test), with each "
-        f"activity exceeding 1 min 30 s of training signal. "
-        + (" Breakdown — " + "; ".join(act_lines) + "." if act_lines else ""),
+        f"I recorded standing, walking, jumping, and still with Sensor Logger on my "
+        f"{device_line}. Each take is roughly 5 to 10 seconds. For every session I kept "
+        f"the accelerometer and gyroscope streams, aligned them on the seconds_elapsed "
+        f"timestamp, and saved labelled CSV files. The GitHub dataset has "
+        f"{len(train_meta) + len(test_meta)} cleaned files "
+        f"({len(train_meta)} for training, {len(test_meta)} held out for testing). "
+        f"Training time per activity is about "
+        f"standing {train_s.get('standing', 0):.0f}s, walking {train_s.get('walking', 0):.0f}s, "
+        f"jumping {train_s.get('jumping', 0):.0f}s, still {train_s.get('still', 0):.0f}s "
+        f"(each above the 1 min 30 s minimum).",
     )
     add_para(
         doc,
-        "Sampling rate (individual device documented for the report): "
-        f"{device_line}. "
-        "Even with a single phone, Sensor Logger can be configured differently across "
-        "sessions; therefore every file is linearly resampled to a common 50 Hz grid "
-        "before windowing so FFT bins and feature windows stay comparable. If multiple "
-        "phones/rates had been used, the same harmonisation step would align them.",
-        bold=False,
+        "My phone logged near 100 Hz. I resampled everything to 50 Hz so window length "
+        "and FFT bins stay consistent. At 50 Hz I used 1.0 s windows (50 samples) with a "
+        "0.5 s hop. One second gives about 1 Hz frequency resolution, which is enough to "
+        "see walking cadence versus near-zero motion when I am still or standing, without "
+        "making the windows so long that short changes disappear.",
     )
-    add_para(
-        doc,
-        "Windowing: at the harmonised 50 Hz rate we use 1.0 s windows (50 samples) with "
-        "0.5 s hop. Native phone rate was ~100 Hz (10 ms Sensor Logger setting); "
-        "after downsampling, FFT frequency resolution is about 1 Hz — enough to separate "
-        "still/standing (near 0 Hz) from walking cadence (~1.5–2 Hz) and jumping (~2–3 Hz), "
-        "while remaining short enough to track transitions.",
-    )
-    add_para(
-        doc,
-        "Video evidence of data collection (4 activities; full body + face visible while "
-        "holding the phone):",
-        bold=True,
-    )
-    add_para(doc, "Standing video: https://youtube.com/shorts/fWiTltw83o8")
-    add_para(doc, "Walking video: https://youtube.com/shorts/m0d-yOL5tSE")
-    add_para(doc, "Jumping video: https://youtube.com/shorts/JhfENFsJmo8")
-    add_para(doc, "Still video: https://youtube.com/shorts/YM_wLnQTzg0")
-    add_fig(doc, FIG / "fig1_raw_samples.png", "Figure 1. Sample |a| traces after resampling.")
+    add_para(doc, "Collection videos (full body, face visible, phone in hand):")
+    add_para(doc, "Standing: https://youtube.com/shorts/fWiTltw83o8")
+    add_para(doc, "Walking: https://youtube.com/shorts/m0d-yOL5tSE")
+    add_para(doc, "Jumping: https://youtube.com/shorts/JhfENFsJmo8")
+    add_para(doc, "Still: https://youtube.com/shorts/YM_wLnQTzg0")
+    add_fig(doc, FIG / "fig1_raw_samples.png", "Figure 1. Example accelerometer magnitude after resampling.")
 
     add_heading(doc, "3. HMM Setup and Implementation")
     add_para(
         doc,
-        "Hidden states Z = {standing, walking, jumping, still}. Observations X are 10-D "
-        "Z-scored feature vectors per window. Transition matrix A stores P(z_{t+1}|z_t). "
-        "Emissions B are diagonal Gaussians N(x|μ_i, σ²_i). π is the initial state distribution.",
+        "Hidden states are the four activities. Each observation is a feature vector from "
+        "one window. I used time-domain features on accel magnitude (mean, variance, std, "
+        "RMS, SMA), xy correlation, and gyro magnitude mean/std – these mainly capture how "
+        "strong and shaky the motion is. From the FFT of accel magnitude I took dominant "
+        "frequency and spectral energy so walking and jumping can show a clearer beat than "
+        "still. Features are Z-scored using training statistics only; otherwise Hz and m/s^2 "
+        "values would unfairly dominate the Gaussian emissions.",
     )
     add_para(
         doc,
-        "Features — time domain: mean, variance, std, RMS, SMA of accelerometer magnitude, "
-        "corr(x,y), gyro mean/std magnitude (energy and axis coupling separate locomotion "
-        "from stillness). Frequency domain (FFT): dominant frequency and spectral energy "
-        "(cadence / periodic power). Z-score normalisation is fit on training only so "
-        "heterogeneous units do not dominate Gaussian emissions.",
+        "I implemented a diagonal-Gaussian HMM in NumPy. Baum-Welch updates pi, A, and the "
+        "emission means/variances and stops when the average log-likelihood change drops "
+        "below 1e-4. Viterbi then picks the most likely activity path. I need Viterbi's "
+        "hard labels to build sensitivity, specificity, accuracy, and the confusion matrix; "
+        "Baum-Welch is what fits the parameters those metrics depend on. Code lives in the "
+        "hmm module and the notebook runs the full pipeline.",
     )
-    add_para(
-        doc,
-        "Algorithms: Baum–Welch (EM) learns π, A, and Gaussian parameters with convergence "
-        "when |Δll| < 1e-4. Forward–Backward supplies the E-step. Viterbi returns the MAP "
-        "state path used to compute sensitivity, specificity, overall accuracy, and the "
-        "confusion matrix on unseen files. Implementation is NumPy-only in src/hmm.py, "
-        "executed via notebooks/hmm_activity_recognition.ipynb.",
-    )
-    add_fig(doc, FIG / "fig_convergence.png", "Figure 2. Baum–Welch log-likelihood convergence.")
+    add_fig(doc, FIG / "fig_convergence.png", "Figure 2. Baum-Welch training curve.", width=4.8)
 
     add_heading(doc, "4. Results and Interpretation")
-    add_fig(doc, FIG / "fig2_transition_matrix.png", "Figure 3. Learned transition matrix A.")
+    add_fig(doc, FIG / "fig2_transition_matrix.png", "Figure 3. Transition matrix A.", width=4.6)
     add_para(
         doc,
-        "High diagonal mass in A reflects realistic behaviour for short continuous takes: "
-        "the model prefers to remain in the current activity across consecutive 1 s windows.",
+        "The transition matrix is heavily diagonal. That matched how I recorded: each file "
+        "is one activity for several seconds, so the model mostly learns to stay put from "
+        "one 0.5 s hop to the next rather than jumping between labels.",
     )
-    add_fig(doc, FIG / "fig3_emission_means.png", "Figure 4. Emission means (B) in Z-scored feature space.")
-    add_fig(doc, FIG / "fig3b_emission_vars.png", "Figure 5. Emission variances (diagonal Gaussian B).")
-    add_fig(
-        doc,
-        FIG / "fig4_decoded_test_1.png",
-        "Figure 6. Viterbi decoding on an unseen test sequence.",
-    )
-    add_fig(
-        doc,
-        FIG / "fig4_decoded_test_2.png",
-        "Figure 7. Additional decoded unseen sequence (activity transition view).",
-    )
+    add_fig(doc, FIG / "fig3_emission_means.png", "Figure 4. Emission means by state.", width=5.4)
+    add_fig(doc, FIG / "fig3b_emission_vars.png", "Figure 5. Emission variances by state.", width=5.4)
+    add_fig(doc, FIG / "fig4_decoded_test_1.png", "Figure 6. True vs Viterbi labels on a held-out take.", width=5.2)
 
     add_heading(doc, "5. Evaluation on Unseen Data")
     add_para(
         doc,
-        f"Unseen evaluation used {len(test_meta)} held-out Sensor Logger sessions in data/test "
-        "(later recording folders not used during training). This is a new-session split "
-        "from the same collection day/device, testing whether the HMM generalises beyond "
-        "the exact takes seen in training.",
+        f"I kept {len(test_meta)} recordings out of training (later sessions from the same "
+        f"phone, not used while fitting). That is my unseen set.",
     )
     table = doc.add_table(rows=1, cols=5)
     table.style = "Table Grid"
@@ -359,46 +330,29 @@ def write_docx(results: pd.DataFrame, train_meta, test_meta, model) -> None:
 
     add_para(
         doc,
-        "Generalisation: still and jumping are recognised reliably on held-out takes; "
-        "standing remains the main error mode (often decoded as walking when handheld "
-        "micro-motion raises energy features). Overall accuracy on unseen windows is "
-        f"{float(results['Overall Accuracy'].iloc[0]):.1%}, which is usable for a "
-        "break-reminder filter but would benefit from placement-consistent training.",
+        f"Overall accuracy on unseen windows was {acc:.1%}. Still and jumping were clear. "
+        f"Standing was the weak spot (sensitivity {hard['Sensitivity']:.2f} when standing "
+        f"was hardest): small hand motion while 'standing' often looked a bit like walking "
+        f"to the model. That is honest for handheld logging – I was not always perfectly still.",
     )
-    add_fig(doc, FIG / "fig5_confusion_matrix.png", "Figure 8. Confusion matrix on unseen test data.")
+    add_fig(doc, FIG / "fig5_confusion_matrix.png", "Figure 7. Confusion matrix on unseen data.", width=4.5)
 
     add_heading(doc, "6. Discussion and Conclusion")
-    # Personalised from this run's metrics
-    hard = results.sort_values("Sensitivity").iloc[0]
-    easy = results.sort_values("Sensitivity", ascending=False).iloc[0]
-    acc = float(results["Overall Accuracy"].iloc[0])
     add_para(
         doc,
-        f"On unseen Sensor Logger takes the model reached overall accuracy {acc:.1%}. "
-        f"Easiest state by sensitivity: {easy['State (Activity)']} "
-        f"(sensitivity={easy['Sensitivity']:.2f}). "
-        f"Hardest: {hard['State (Activity)']} (sensitivity={hard['Sensitivity']:.2f}). "
-        "In our confusion matrix, standing is most often confused with walking — "
-        "both can show mild phone motion and overlapping spectral energy when the user "
-        "shifts weight or the phone is handheld rather than pocket-fixed. "
-        "Still and jumping separate cleanly via magnitude and FFT energy.",
+        f"Easiest activity overall: {easy['State (Activity)']}. Hardest: "
+        f"{hard['State (Activity)']}, mostly mixed with walking. The high self-loop "
+        "probabilities in A feel realistic for my short single-activity clips. Resampling "
+        "100 Hz down to 50 Hz made the pipeline consistent, but it can blunt sharp jump "
+        "impacts a little; the 1 s window was my compromise for FFT resolution after that "
+        "downsample.",
     )
     add_para(
         doc,
-        "Transition probabilities remain strongly diagonal, matching realistic behaviour: "
-        "within an 8 s labelled take the activity rarely switches every 0.5 s hop. "
-        "Native sampling was ~100 Hz (SM-A325N, Sensor Logger 10 ms); resampling to 50 Hz "
-        "harmonises members/devices but can soften high-frequency impact peaks in jumping. "
-        "The 1.0 s window after resampling keeps ~1 Hz FFT resolution for cadence features.",
-    )
-    add_para(
-        doc,
-        "Improvements: more participants and phone placements (waist vs hand), magnetometer "
-        "features, full-covariance Gaussians, orientation-invariant features (e.g., gravity-removed "
-        "linear accel), and longer multi-activity sessions to enrich off-diagonal transitions. "
-        "Overall, the Gaussian HMM with Baum–Welch training and Viterbi decoding recovers "
-        "activity states from real IMU feature sequences and supports our wellness-break "
-        "reminder use case by separating sedentary versus active phone contexts.",
+        "If I continue this, I would fix phone placement (pocket vs hand), add a few more "
+        "people, and try gravity-removed linear acceleration so orientation matters less. "
+        "Even with standing errors, the HMM already separates quiet desk time from clear "
+        "movement well enough for the break-reminder idea I started with.",
     )
 
     out = ROOT / "report" / "Formative2_HMM_Report.docx"
