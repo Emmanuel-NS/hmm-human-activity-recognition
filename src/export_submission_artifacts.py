@@ -356,7 +356,12 @@ def write_docx(results: pd.DataFrame, train_meta, test_meta, model) -> None:
     )
 
     out = ROOT / "report" / "Formative2_HMM_Report.docx"
-    doc.save(out)
+    try:
+        doc.save(out)
+    except PermissionError:
+        out = ROOT / "report" / "Formative2_HMM_Report_SUBMIT.docx"
+        doc.save(out)
+        print("NOTE: original docx was locked; wrote", out)
 
 
 if __name__ == "__main__":
