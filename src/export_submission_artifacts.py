@@ -279,10 +279,10 @@ def write_docx(results: pd.DataFrame, train_meta, test_meta, model) -> None:
         "Missing videos incur an immediate zero per the brief.",
         bold=True,
     )
-    add_para(doc, "Standing video: [PASTE LINK]")
-    add_para(doc, "Walking video: [PASTE LINK]")
-    add_para(doc, "Jumping video: [PASTE LINK]")
-    add_para(doc, "Still video: [PASTE LINK]")
+    add_para(doc, "Standing video: https://youtube.com/shorts/fWiTltw83o8")
+    add_para(doc, "Walking video: https://youtube.com/shorts/m0d-yOL5tSE")
+    add_para(doc, "Jumping video: https://youtube.com/shorts/JhfENFsJmo8")
+    add_para(doc, "Still video: https://youtube.com/shorts/YM_wLnQTzg0")
     add_fig(doc, FIG / "fig1_raw_samples.png", "Figure 1. Sample |a| traces after resampling.")
 
     add_heading(doc, "3. HMM Setup and Implementation")

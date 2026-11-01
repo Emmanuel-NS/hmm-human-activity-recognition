@@ -50,10 +50,10 @@ FFT frequency resolution ≈ 1 Hz, which is enough to separate still/standing (n
 
 Insert / link **four** videos (face visible, full body, phone in hand, good lighting):
 
-1. Standing: [link]  
-2. Walking: [link]  
-3. Jumping: [link]  
-4. Still: [link]  
+1. Standing: https://youtube.com/shorts/fWiTltw83o8  
+2. Walking: https://youtube.com/shorts/m0d-yOL5tSE  
+3. Jumping: https://youtube.com/shorts/JhfENFsJmo8  
+4. Still: https://youtube.com/shorts/YM_wLnQTzg0  
 
 ### 2.5 Sample visualizations
 
