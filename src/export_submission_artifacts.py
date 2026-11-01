@@ -14,6 +14,9 @@ import pandas as pd
 import seaborn as sns
 from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.opc.constants import RELATIONSHIP_TYPE as RT
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
 from docx.shared import Inches, Pt
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -185,6 +188,44 @@ def add_para(doc: Document, text: str, bold: bool = False) -> None:
     run = p.add_run(text)
     run.bold = bold
     run.font.size = Pt(11)
+    return p
+
+
+def add_hyperlink(paragraph, text: str, url: str) -> None:
+    """Insert a real clickable hyperlink into an existing paragraph."""
+    part = paragraph.part
+    r_id = part.relate_to(url, RT.HYPERLINK, is_external=True)
+    hyperlink = OxmlElement("w:hyperlink")
+    hyperlink.set(qn("r:id"), r_id)
+
+    new_run = OxmlElement("w:r")
+    rPr = OxmlElement("w:rPr")
+
+    color = OxmlElement("w:color")
+    color.set(qn("w:val"), "0563C1")
+    rPr.append(color)
+
+    u = OxmlElement("w:u")
+    u.set(qn("w:val"), "single")
+    rPr.append(u)
+
+    sz = OxmlElement("w:sz")
+    sz.set(qn("w:val"), "22")  # 11 pt
+    rPr.append(sz)
+
+    new_run.append(rPr)
+    text_elem = OxmlElement("w:t")
+    text_elem.text = text
+    new_run.append(text_elem)
+    hyperlink.append(new_run)
+    paragraph._p.append(hyperlink)
+
+
+def add_labeled_link(doc: Document, label: str, url: str) -> None:
+    p = doc.add_paragraph()
+    run = p.add_run(f"{label} ")
+    run.font.size = Pt(11)
+    add_hyperlink(p, url, url)
 
 
 def add_fig(doc: Document, path: Path, caption: str, width: float = 5.2) -> None:
@@ -225,10 +266,11 @@ def write_docx(results: pd.DataFrame, train_meta, test_meta, model) -> None:
     )
     title.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_para(doc, "Formative 2 – Hidden Markov Models (individual)")
-    add_para(
-        doc,
-        "Emmanuel Nsabagasa (e.nsabagasa@alustudent.com). "
-        "Repo: https://github.com/Emmanuel-NS/hmm-human-activity-recognition",
+    p_meta = add_para(doc, "Emmanuel Nsabagasa (e.nsabagasa@alustudent.com). Repo: ")
+    add_hyperlink(
+        p_meta,
+        "https://github.com/Emmanuel-NS/hmm-human-activity-recognition",
+        "https://github.com/Emmanuel-NS/hmm-human-activity-recognition",
     )
 
     add_heading(doc, "1. Background and Motivation")
@@ -267,10 +309,10 @@ def write_docx(results: pd.DataFrame, train_meta, test_meta, model) -> None:
         "making the windows so long that short changes disappear.",
     )
     add_para(doc, "Collection videos (full body, face visible, phone in hand):")
-    add_para(doc, "Standing: https://youtube.com/shorts/fWiTltw83o8")
-    add_para(doc, "Walking: https://youtube.com/shorts/m0d-yOL5tSE")
-    add_para(doc, "Jumping: https://youtube.com/shorts/JhfENFsJmo8")
-    add_para(doc, "Still: https://youtube.com/shorts/YM_wLnQTzg0")
+    add_labeled_link(doc, "Standing:", "https://youtube.com/shorts/fWiTltw83o8")
+    add_labeled_link(doc, "Walking:", "https://youtube.com/shorts/m0d-yOL5tSE")
+    add_labeled_link(doc, "Jumping:", "https://youtube.com/shorts/JhfENFsJmo8")
+    add_labeled_link(doc, "Still:", "https://youtube.com/shorts/YM_wLnQTzg0")
     add_fig(doc, FIG / "fig1_raw_samples.png", "Figure 1. Example accelerometer magnitude after resampling.")
 
     add_heading(doc, "3. HMM Setup and Implementation")
@@ -355,13 +397,20 @@ def write_docx(results: pd.DataFrame, train_meta, test_meta, model) -> None:
         "movement well enough for the break-reminder idea I started with.",
     )
 
-    out = ROOT / "report" / "Formative2_HMM_Report.docx"
-    try:
-        doc.save(out)
-    except PermissionError:
-        out = ROOT / "report" / "Formative2_HMM_Report_SUBMIT.docx"
-        doc.save(out)
-        print("NOTE: original docx was locked; wrote", out)
+    out_main = ROOT / "report" / "Formative2_HMM_Report.docx"
+    out_final = ROOT / "report" / "Formative2_HMM_Report_FINAL.docx"
+    saved = []
+    for out in (out_main, out_final):
+        try:
+            doc.save(out)
+            saved.append(str(out))
+        except PermissionError:
+            alt = ROOT / "report" / "Formative2_HMM_Report_SUBMIT.docx"
+            doc.save(alt)
+            saved.append(str(alt))
+            print("NOTE: locked file skipped; wrote", alt)
+            break
+    print("Saved submission report(s):", " | ".join(saved))
 
 
 if __name__ == "__main__":
