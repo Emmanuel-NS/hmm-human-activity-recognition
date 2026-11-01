@@ -1,27 +1,26 @@
-# Formative 2 – HMM activity recognition
+# hmm-human-activity-recognition
 
-Individual project. I recorded phone accelerometer and gyroscope data (standing, walking, jumping, still) and built a small Gaussian HMM in NumPy to label the activity over time.
+Phone IMU activity recognition with a Gaussian HMM written in NumPy.
 
-## What’s in here
+I logged accelerometer and gyroscope with Sensor Logger (Samsung SM-A325N, ~100 Hz) for four activities: standing, walking, jumping, and still. Signals are resampled to 50 Hz, cut into 1 s windows (0.5 s hop), turned into time and FFT features, then labelled with Baum-Welch training and Viterbi decoding.
 
-- `data/raw` – labelled training CSVs  
-- `data/test` – held-out recordings for evaluation  
-- `notebooks/hmm_activity_recognition.ipynb` – main notebook  
-- `src/` – feature code, HMM (Baum-Welch + Viterbi), helpers  
-- `report/Formative2_HMM_Report.docx` – write-up for LMS  
+On held-out recordings the model reached about 83% overall accuracy. Still and jumping were clear; standing was the hardest and often mixed with walking when the phone moved a little in my hand.
 
-## Run it
+## Layout
+
+| Path | Content |
+|------|---------|
+| `data/raw/` | 80 labelled training CSVs |
+| `data/test/` | 8 unseen test CSVs |
+| `notebooks/hmm_activity_recognition.ipynb` | end-to-end run |
+| `src/hmm.py` | Baum-Welch + Viterbi |
+| `src/features.py` | feature extraction + Z-score |
+| `src/data_utils.py` | load / resample / window |
+| `report/Formative2_HMM_Report.docx` | short report |
+
+## Setup
 
 ```bash
 pip install -r requirements.txt
 jupyter notebook notebooks/hmm_activity_recognition.ipynb
 ```
-
-My Sensor Logger rate was about 100 Hz on an SM-A325N. In code I resample to 50 Hz, then use 1 s windows with 0.5 s hop.
-
-## Methods (short)
-
-- Baum-Welch fits the HMM and stops when the log-likelihood barely changes  
-- Viterbi gives the predicted activity path used for the metrics table  
-
-Repo: https://github.com/Emmanuel-NS/hmm-human-activity-recognition
